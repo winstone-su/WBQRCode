@@ -1,0 +1,569 @@
+//
+//  CodeReaderViewController_IOS7.h
+//  EOA
+//
+//  Created by comtop on 14-11-28.
+//
+//
+
+#import <UIKit/UIKit.h>
+#import <AVFoundation/AVFoundation.h>
+#import "BaseViewController_IPhone.h"
+#import "QRcodeOverlayView.h"
+
+@protocol CodeReaderViewControllerDelegate <NSObject>
+
+@optional
+- (void)codeReadeResult:(NSString *)result;
+
+@end
+
+@interface CodeReaderViewController_IOS7 : BaseViewController_IPhone<AVCaptureMetadataOutputObjectsDelegate,UIActionSheetDelegate>{
+
+UIActionSheet *_actionSheet;
+NSDictionary *actionDic;
+NSTimer * timer;
+int num;
+BOOL upOrdown;
+
+IBOutlet UIImageView *layoutLine;
+IBOutlet UIImageView *_readerCornerView;
+IBOutlet UILabel *_resultLabel;
+IBOutlet NSLayoutConstraint *_topConstraint;
+}
+
+@property (nonatomic,assign) id photoSeletct;
+@property (retain,nonatomic) AVCaptureDevice * device;
+@property (retain,nonatomic) AVCaptureDeviceInput * input;
+@property (retain,nonatomic) AVCaptureMetadataOutput * output;
+@property (retain,nonatomic) AVCaptureSession * session;
+@property (retain,nonatomic) IBOutlet AVCaptureVideoPreviewLayer *readerView;
+@property (retain, nonatomic) QRcodeOverlayView *overlayView;
+@property (retain, nonatomic) id<CodeReaderViewControllerDelegate> delegate;
+@property (nonatomic, assign) BOOL needResult;
+
+- (id)initWithNibName:(NSString *)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil withParameter:(NSDictionary *)appParameter;
+
+@end
+
+
+
+
+#program mark -- .m file
+
+//
+//  CodeReaderViewController_IOS7.m
+//  EOA
+//
+//  Created by comtop on 14-11-28.
+//
+//
+
+#import "CodeReaderViewController_IOS7.h"
+#import "CodeReaderViewController.h"
+#import "HomeViewController_IPhone.h"
+#import "AppDelegate.h"
+#import "ESPClientUtil.h"
+#import "ImageTextWebViewController.h"
+#import "UIAlertView+ShowWithBlk.h"
+#import "qrScanResultViewController.h"
+
+@interface CodeReaderViewController_IOS7 ()
+{
+BOOL _isOpenByApp;
+BOOL _isQrcoding ;
+}
+@end
+
+@implementation CodeReaderViewController_IOS7
+
+- (id)initWithNibName:(NSString *)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil withParameter:(NSDictionary *)appParameter
+{
+self = [super init];
+if (self) {
+if ([appParameter objectForKey:@"loadToken"] != nil) {
+_isOpenByApp = YES;
+_needResult = NO;
+}
+}
+return self;
+}
+
+- (void)viewDidLoad {
+[super viewDidLoad];
+
+[self setTitleView:@"扫一扫"];
+[self initUI];
+[self createBackBtn];
+_isQrcoding = NO;
+}
+
+- (void)didReceiveMemoryWarning {
+[super didReceiveMemoryWarning];
+// Dispose of any resources that can be recreated.
+}
+
+-(void)enterBackground
+{
+if (_session) {
+[_session stopRunning];
+[_overlayView stopAnimation];
+}
+}
+
+-(void)becomeActive
+{
+if (_session) {
+[_session startRunning];
+[_overlayView startAnimation];
+}
+}
+
+- (void)viewWillDisappear:(BOOL)animated
+{
+[super viewWillDisappear:animated];
+if (_actionSheet) {
+[_actionSheet dismissWithClickedButtonIndex:_actionSheet.cancelButtonIndex animated:NO];
+
+[_actionSheet removeFromSuperview];
+[_actionSheet release];
+_actionSheet=nil;
+}
+
+// 隐藏toolBar
+self.navigationController.toolbarHidden = YES;
+
+[self setStatusStyle:StatusWhiteColor];
+//停止扫描
+//    [_session stopRunning];
+[_overlayView stopAnimation];
+}
+
+
+- (void)viewDidAppear:(BOOL)animated
+{
+[super viewDidAppear:animated];
+// run the reader when the view is visible
+//    self.mm_drawerController.canPan = NO;
+
+//开启iOS7的滑动返回效果
+if ([self.navigationController respondsToSelector:@selector(interactivePopGestureRecognizer)]) {
+self.navigationController.interactivePopGestureRecognizer.delegate = nil;
+self.navigationController.interactivePopGestureRecognizer.enabled = YES;
+}
+[_session startRunning];
+}
+
+
+- (void)setupCamera
+{
+NSString *mediaType = AVMediaTypeVideo;
+
+AVAuthorizationStatus authStatus = [AVCaptureDevice authorizationStatusForMediaType:mediaType];
+
+if(authStatus == AVAuthorizationStatusRestricted || authStatus == AVAuthorizationStatusDenied){
+
+UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"提醒"
+message:@"您的相机访问权限没有打开，请前往[设置]-[隐私]-[相机]-打开权限"
+delegate:nil
+cancelButtonTitle:@"确定"
+otherButtonTitles:nil, nil];
+[alert showAlertViewOn:^(NSInteger index) {
+if (index == 0) {
+[self goBack:nil];
+}
+}];
+[alert release];
+
+return;
+
+}
+
+// Device
+self.device = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo];
+
+// Input
+self.input = [AVCaptureDeviceInput deviceInputWithDevice:self.device error:nil];
+
+// Output
+AVCaptureMetadataOutput * output_ = [[AVCaptureMetadataOutput alloc] init];
+self.output = output_;
+[_output setMetadataObjectsDelegate:self queue:dispatch_get_main_queue()];
+
+// Session
+AVCaptureSession * session_ = [[AVCaptureSession alloc]init];
+self.session = session_;
+[_session setSessionPreset:AVCaptureSessionPresetHigh];
+if ([_session canAddInput:self.input])
+{
+[_session addInput:self.input];
+}
+
+if ([_session canAddOutput:self.output])
+{
+[_session addOutput:self.output];
+}
+
+// 条码类型 AVMetadataObjectTypeQRCode
+//    _output.metadataObjectTypes =@[AVMetadataObjectTypeQRCode];
+_output.metadataObjectTypes=@[AVMetadataObjectTypeQRCode,AVMetadataObjectTypeEAN13Code, AVMetadataObjectTypeEAN8Code, AVMetadataObjectTypeCode128Code];
+
+if (_readerView.superlayer) {
+[_readerView removeFromSuperlayer];
+}
+// Preview
+self.readerView =[AVCaptureVideoPreviewLayer layerWithSession:self.session];
+_readerView.videoGravity = AVLayerVideoGravityResizeAspectFill;
+//    CGFloat width =  MainScreenBounds.size.width - 80;
+//    _readerView.frame = CGRectMake(30, 35, width, 300 - 30);//self.view.bounds;
+_readerView.frame = self.view.bounds;
+[self.view.layer insertSublayer:self.readerView atIndex:0];
+
+CGFloat offsetX = ScreenWidth/6.0f;
+CGFloat offsetY = ScreenHeight/6.0f;
+CGFloat width = ScreenWidth - 2*offsetX;
+self.overlayView = [[QRcodeOverlayView alloc] initWithFrame:self.readerView.frame];
+_overlayView.transparentArea = CGRectMake(offsetX, offsetY, width, width);
+_output.rectOfInterest = [self getScanCrop:_overlayView.transparentArea readerViewBounds:self.readerView.frame];
+[self.view addSubview:self.overlayView];
+[_session startRunning];
+[_overlayView startAnimation];
+//    [self.view bringSubviewToFront:_resultLabel];
+
+[output_ release];
+[session_ release];
+}
+
+//- (void)labelCLick:(UITapGestureRecognizer *)tap{
+//    [WebUtil gotoWebView:self.navigationController andUrl:_resultLabel.text andTittle:nil internal:YES];
+//}
+
+-(void)initUI
+{
+self.view.backgroundColor = [UIColor colorWithRed:26.0f/255.0f green:26.0f/255.0f  blue:26.0f/255.0f  alpha:1.0f];
+
+if (!TARGET_IPHONE_SIMULATOR) {
+[self setupCamera];
+}
+
+[_resultLabel setNumberOfLines:0];
+[_resultLabel setLineBreakMode:NSLineBreakByWordWrapping];
+[_resultLabel setUserInteractionEnabled:YES];
+//    UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(labelCLick:)];
+//    [_resultLabel addGestureRecognizer:tap];
+//    [tap release];
+upOrdown = NO;
+num =0;
+//    [self buildTimer];
+}
+
+- (void)buildTimer
+{
+timer = [[NSTimer scheduledTimerWithTimeInterval:.02 target:self selector:@selector(animation1) userInfo:nil repeats:YES] retain];
+}
+
+
+- (void)toUpdateTopConstraint:(CGFloat)value{
+
+_topConstraint.constant = value;
+
+[UIView animateWithDuration:0.3 animations:^{
+[self.view setNeedsUpdateConstraints];
+[self.view layoutIfNeeded];
+}];
+}
+
+-(void)animation1
+{
+if (upOrdown == NO) {
+num ++;
+[self toUpdateTopConstraint:33+2*num];
+
+if (2*num == (_readerCornerView.frame.size.height - 20)) {
+upOrdown = YES;
+}
+}
+else {
+num --;
+[self toUpdateTopConstraint:33+2*num];
+
+if (num == 0) {
+upOrdown = NO;
+}
+}
+
+}
+
+#pragma mark AVCaptureMetadataOutputObjectsDelegate
+- (void)captureOutput:(AVCaptureOutput *)captureOutput didOutputMetadataObjects:(NSArray *)metadataObjects fromConnection:(AVCaptureConnection *)connection
+{
+
+NSString *stringValue;
+
+if ([metadataObjects count] >0 && !_isQrcoding)
+{
+[[self.readerView connection] setEnabled:NO];
+[timer invalidate];
+[_session stopRunning];
+[_overlayView stopAnimation];
+//        _overlayView.imgLine.hidden = YES;
+AVMetadataMachineReadableCodeObject * metadataObject = [metadataObjects objectAtIndex:0];
+stringValue = metadataObject.stringValue;
+NSData *data = [stringValue dataUsingEncoding:NSWindowsCP1252StringEncoding];
+if (data.length && ![self IsChinese:stringValue]) {
+NSStringEncoding enc = CFStringConvertEncodingToNSStringEncoding(kCFStringEncodingGB_18030_2000);
+self.overlayView.resultLabel.text = [[[NSString alloc] initWithData:data encoding:enc] autorelease];
+}else{
+self.overlayView.resultLabel.text = stringValue;
+
+}
+_isQrcoding = YES;
+[self qrcode:self.overlayView.resultLabel.text];
+}
+}
+
+-(BOOL)IsChinese:(NSString *)str {
+for(int i=0; i< [str length];i++){
+int a = [str characterAtIndex:i];
+if( a > 0x4e00 && a < 0x9fff)
+{
+return YES;
+}
+
+}
+return NO;
+
+}
+
+
+-(void)goBack:(id)sender
+{
+[timer invalidate];
+[timer release];
+
+NSLog(@"");
+
+if (self.navigationController&&[[self.navigationController childViewControllers] count]>1) {
+[self.navigationController popViewControllerAnimated:YES];
+
+} else{
+//        [self.navigationController dismissModalViewControllerAnimated:YES];
+[self.navigationController dismissViewControllerAnimated:YES completion:nil];
+
+}
+
+}
+
+
+-(void) toggle: (id)sender
+{
+//   [self.mm_drawerController toggleDrawerSide:MMDrawerSideLeft animated:YES completion:nil];
+}
+
+
+- (void)backBtnPressed
+{
+[self.navigationController popViewControllerAnimated:YES];
+}
+
+-(void)qrcode:(NSString *)url
+{
+NSLog(@"qrcode:");
+
+if(self.delegate && [self.delegate respondsToSelector:@selector(codeReadeResult:)] && _needResult){
+[self.navigationController dismissViewControllerAnimated:YES completion:^{
+[self.delegate codeReadeResult:url];
+}];
+
+return ;
+}
+
+AppDelegate *appDelegate = (AppDelegate *)[UIApplication sharedApplication].delegate;
+
+if ([url rangeOfString:@"isAddOpenId"].location !=  NSNotFound) {
+
+url = [[NSString stringWithFormat:@"%@&openId=%@&deviceId=%@",url,[[NSUserDefaults standardUserDefaults] objectForKey:@"openId"],[[EOAAppCommon sharedInstance] systemClientIdSetting]] stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+
+if (_isOpenByApp) {
+[self dismissViewControllerAnimated:YES
+completion:^{
+
+[WebUtil gotoWebView:[self navigationController] andUrl:url andTittle:nil appkey:nil showShare:YES];
+}];
+}else{
+[WebUtil gotoWebView:[self navigationController] andUrl:url andTittle:nil appkey:nil showShare:YES];
+[self.navigationController popViewControllerAnimated:NO];
+}
+return;
+}
+
+//添加会议扫描签到
+if ([url rangeOfString:@"api/meeting/sign"].location != NSNotFound) {
+
+if (_isOpenByApp) {
+[self dismissViewControllerAnimated:YES
+completion:^{
+[WebUtil gotoWebView:[self navigationController] andUrl:url andTittle:nil appkey:nil showShare:YES];
+
+}];
+}else{
+[WebUtil gotoWebView:self.navigationController andUrl:url andTittle:nil appkey:nil showShare:YES];
+[self.navigationController popViewControllerAnimated:NO];
+}
+return;
+}
+
+//企信自动登录
+if ([url rangeOfString:@"api/qrcode/get"].location != NSNotFound) {
+
+[self qrcodeAutoLogin:url];
+return;
+
+}
+
+//二维码名片
+
+if ([url rangeOfString:@"qrcode/qrcard"].location != NSNotFound) {
+
+[self maxCard:url];
+return;
+}
+
+if ([url rangeOfString:@"http"].location != NSNotFound) {
+
+if (_isOpenByApp) {
+
+[self dismissViewControllerAnimated:YES
+completion:^{
+[WebUtil gotoWebView:[self navigationController] andUrl:url andTittle:nil appkey:nil showShare:YES];
+
+}];
+
+}else{
+[WebUtil gotoWebView:[self navigationController] andUrl:url andTittle:nil appkey:nil showShare:YES];
+[self.navigationController popViewControllerAnimated:NO];
+}
+
+return;
+}
+
+}
+-(void)qrcodeAutoLogin:(NSString*)urlString
+{
+NSLog(@"qrcodeAutoLogin");
+__block NSString* url = urlString;//[NSString stringWithFormat:@"%@",urlString];
+__block __typeof(self) weakSelf = self;
+[[HttpUtility sharedInstance] requestDataWithURL:url requestTag:kTagServerGetAddressList networkType:REQUEST_GET requestData:nil success:^(NSString *tag, NSString *responseString) {
+
+NSLog(@"%@",responseString);
+NSDictionary *_dict=[JSONUtility  DictWithJSONObject:responseString error:nil];
+if (actionDic) {
+[actionDic release];
+actionDic=nil;
+}
+actionDic=[_dict retain];
+NSString *state=[[actionDic objectForKey:@"state"] stringValue];
+if ([@"0" isEqualToString:state]) {
+
+_actionSheet = [[UIActionSheet alloc] initWithTitle:@"查询成功" delegate:self cancelButtonTitle:@"取消" destructiveButtonTitle:@"确定" otherButtonTitles:nil];
+[_actionSheet setTag:0];
+[_actionSheet showInView:weakSelf.view];
+
+}
+} failed:^(NSString *tag, NSError *error, NSDictionary *dict) {
+//NSLog(@"error.code = %d",error.code);
+NSString *errorRetryYes = [NSString stringWithFormat:@"%@", [dict objectForKey: kResultErrorRetry]];
+if([kResultErrorRetryYes isEqualToString:errorRetryYes])
+{
+[weakSelf qrcodeAutoLogin:url];
+}
+else{
+if([[XMPPUnits sharedInstance] isConnectServer])
+{
+
+[[XMPPUnits sharedInstance] tokenResetSession:^(NSInteger nState) {
+if (0 == nState) {
+dispatch_async(dispatch_get_main_queue(), ^{
+[weakSelf qrcodeAutoLogin:url];
+});
+}
+}];
+
+}
+}
+
+}];
+}
+
+- (void)maxCard:(NSString *)urlstring{
+
+qrScanResultViewController *scanResult = [[qrScanResultViewController alloc] initWithNibName:@"qrScanResultViewController" bundle:nil];
+scanResult.qrURLString = urlstring;
+
+[self.navigationController pushViewController:scanResult animated:YES];
+
+[scanResult release];
+}
+
+-(void)action:(NSDictionary *)dic
+{
+
+NSString *json=[JSONUtility JSONOjbectWithDict:[dic objectForKey:@"data"] error:nil];
+
+//NSData* jsonData = [json dataUsingEncoding:NSUTF8StringEncoding];
+NSDictionary* dictData = [NSDictionary dictionaryWithObjectsAndKeys:json,@"data", nil];
+
+NSString *url= [NSString stringWithFormat:@"%@/%@",[[EOAAppCommon sharedInstance] defaultHttpURL],ServerQrcodeAction];
+[[HttpUtility sharedInstance] postDataWithURL:url requestTag:ServerQrcodeAction postDic:dictData requestSuccessBlock:^(NSString *tag, NSString *responseString) {
+DDLogInfo(@"%@",responseString);
+if (_isOpenByApp) {
+[self dismissViewControllerAnimated:YES completion:NULL];
+return ;
+}
+[self.navigationController popViewControllerAnimated:YES];
+} requestFailedBlock:^(NSString *tag, NSError *er, NSDictionary *dict) {
+DDLogInfo(@"%@",er);
+}];
+}
+
+- (void)actionSheet:(UIActionSheet *)actionSheet clickedButtonAtIndex:(NSInteger)buttonIndex{
+if (buttonIndex==0)
+{
+[self action:actionDic];
+}
+}
+
+//设置可扫描区的scanCrop的方法
+- (CGRect)getScanCrop:(CGRect)rect readerViewBounds:(CGRect)rvBounds{
+CGFloat x,y,width,height;
+x = rect.origin.y / rvBounds.size.height;
+y = 1 - (rect.origin.x + rect.size.width) / rvBounds.size.width;
+width = (rect.origin.y + rect.size.height) / rvBounds.size.height;
+height = 1 - rect.origin.x / rvBounds.size.width;
+return CGRectMake(x, y, width, height);
+}
+
+
+-(void)dealloc{
+
+[[HttpUtility sharedInstance] removeTag:ServerQrcodeAction];
+[[HttpUtility sharedInstance] removeTag:kTagServerGetAddressList];
+[_readerCornerView release], _readerCornerView = nil;
+[_resultLabel release], _resultLabel = nil;
+
+[_actionSheet release];
+[actionDic release];
+self.session = nil;
+self.device = nil;
+self.input = nil;
+self.output = nil;
+self.readerView = nil;
+self.overlayView = nil;
+self.delegate = nil;
+[layoutLine release];
+[_topConstraint release];
+[super dealloc];
+}
+
+
+@end
