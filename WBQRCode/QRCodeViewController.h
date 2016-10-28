@@ -1,5 +1,5 @@
 //
-//  ViewController.h
+//  QRCodeViewController.h
 //  WBQRCode
 //
 //  Created by swb on 2016/10/28.
@@ -8,10 +8,6 @@
 
 #import <UIKit/UIKit.h>
 
-@interface ViewController : UIViewController
-
-- (IBAction)btnClick:(id)sender;
-
+@interface QRCodeViewController : UIViewController
 
 @end
-

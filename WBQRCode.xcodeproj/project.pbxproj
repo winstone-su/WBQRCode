@@ -15,6 +15,9 @@
 		D411759E1DC34F85009AF0A1 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = D411759C1DC34F85009AF0A1 /* LaunchScreen.storyboard */; };
 		D41175A91DC34F85009AF0A1 /* WBQRCodeTests.m in Sources */ = {isa = PBXBuildFile; fileRef = D41175A81DC34F85009AF0A1 /* WBQRCodeTests.m */; };
 		D41175B41DC34F85009AF0A1 /* WBQRCodeUITests.m in Sources */ = {isa = PBXBuildFile; fileRef = D41175B31DC34F85009AF0A1 /* WBQRCodeUITests.m */; };
+		D41175C31DC3553D009AF0A1 /* QRcodeOverlayView.m in Sources */ = {isa = PBXBuildFile; fileRef = D41175C21DC3553D009AF0A1 /* QRcodeOverlayView.m */; };
+		D41175C51DC355C8009AF0A1 /* image.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D41175C41DC355C8009AF0A1 /* image.xcassets */; };
+		D41175C81DC35691009AF0A1 /* QRCodeViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = D41175C71DC35691009AF0A1 /* QRCodeViewController.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -51,6 +54,11 @@
 		D41175AF1DC34F85009AF0A1 /* WBQRCodeUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WBQRCodeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D41175B31DC34F85009AF0A1 /* WBQRCodeUITests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = WBQRCodeUITests.m; sourceTree = "<group>"; };
 		D41175B51DC34F85009AF0A1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		D41175C11DC3553D009AF0A1 /* QRcodeOverlayView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = QRcodeOverlayView.h; sourceTree = "<group>"; };
+		D41175C21DC3553D009AF0A1 /* QRcodeOverlayView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = QRcodeOverlayView.m; sourceTree = "<group>"; };
+		D41175C41DC355C8009AF0A1 /* image.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = image.xcassets; sourceTree = "<group>"; };
+		D41175C61DC35691009AF0A1 /* QRCodeViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = QRCodeViewController.h; sourceTree = "<group>"; };
+		D41175C71DC35691009AF0A1 /* QRCodeViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = QRCodeViewController.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -105,8 +113,13 @@
 				D41175921DC34F85009AF0A1 /* AppDelegate.m */,
 				D41175941DC34F85009AF0A1 /* ViewController.h */,
 				D41175951DC34F85009AF0A1 /* ViewController.m */,
+				D41175C11DC3553D009AF0A1 /* QRcodeOverlayView.h */,
+				D41175C21DC3553D009AF0A1 /* QRcodeOverlayView.m */,
+				D41175C61DC35691009AF0A1 /* QRCodeViewController.h */,
+				D41175C71DC35691009AF0A1 /* QRCodeViewController.m */,
 				D41175971DC34F85009AF0A1 /* Main.storyboard */,
 				D411759A1DC34F85009AF0A1 /* Assets.xcassets */,
+				D41175C41DC355C8009AF0A1 /* image.xcassets */,
 				D411759C1DC34F85009AF0A1 /* LaunchScreen.storyboard */,
 				D411759F1DC34F85009AF0A1 /* Info.plist */,
 				D411758E1DC34F85009AF0A1 /* Supporting Files */,
@@ -246,6 +259,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D411759E1DC34F85009AF0A1 /* LaunchScreen.storyboard in Resources */,
+				D41175C51DC355C8009AF0A1 /* image.xcassets in Resources */,
 				D411759B1DC34F85009AF0A1 /* Assets.xcassets in Resources */,
 				D41175991DC34F85009AF0A1 /* Main.storyboard in Resources */,
 			);
@@ -272,7 +286,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D41175C81DC35691009AF0A1 /* QRCodeViewController.m in Sources */,
 				D41175961DC34F85009AF0A1 /* ViewController.m in Sources */,
+				D41175C31DC3553D009AF0A1 /* QRcodeOverlayView.m in Sources */,
 				D41175931DC34F85009AF0A1 /* AppDelegate.m in Sources */,
 				D41175901DC34F85009AF0A1 /* main.m in Sources */,
 			);

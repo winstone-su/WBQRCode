@@ -7,6 +7,7 @@
 //
 
 #import "ViewController.h"
+#import "QRCodeViewController.h"
 
 @interface ViewController ()
 
@@ -24,4 +25,6 @@
     // Dispose of any resources that can be recreated.
 }
 
+- (IBAction)btnClick:(id)sender {
+}
 @end
